@@ -1,0 +1,9 @@
+# To setup protobuff
+apt-get -y update
+apt-get -y upgrade
+apt-get install -y protobuf-compiler libprotobuf-dev autoconf libtool
+
+cd /dg-hl-fast/codes/OpenPCDet/utils/carla_mdls/mdlidar_sample/protobuf-source
+./configure --prefix="/dg-hl-fast/codes/OpenPCDet/utils/carla_mdls/mdlidar_sample/protobuf"
+make
+make install
