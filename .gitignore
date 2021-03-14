@@ -15,3 +15,4 @@ venv/
 *.bin
 utils/carla_mdls/mdlidar_sample/protobuf-source
 utils/carla_mdls/mdlidar_sample/protobuf
+misc/kitti_object_vis/
