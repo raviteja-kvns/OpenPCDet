@@ -25,23 +25,25 @@ config = {
     }
 }
 raw_data_path = "/dg-hl-fast/codes/OpenPCDet/data/carla/mdls/"
-
-# Creating file structure
-base_path = "./data/carla/mdls/as_kitti"
-Path(base_path).mkdir(parents=True, exist_ok=True)
-Path(base_path + "/ImageSets").mkdir(parents=True, exist_ok=True)
-Path(base_path + "/training/calib").mkdir(parents=True, exist_ok=True)
-Path(base_path + "/training/velodyne").mkdir(parents=True, exist_ok=True)
-Path(base_path + "/training/label_2").mkdir(parents=True, exist_ok=True)
-Path(base_path + "/training/image_2").mkdir(parents=True, exist_ok=True)
-
-Path(base_path + "/testing/calib").mkdir(parents=True, exist_ok=True)
-Path(base_path + "/testing/velodyne").mkdir(parents=True, exist_ok=True)
-Path(base_path + "/testing/label_2").mkdir(parents=True, exist_ok=True)
-Path(base_path + "/testing/image_2").mkdir(parents=True, exist_ok=True)
-
 towns = ['town_1', 'town_2']
 num_files_in_towns = [None] * len(towns)
+
+def create_folder_structure():
+    """
+        Creating file structure 
+    """
+    base_path = raw_data_path + 'as_kitti'
+    Path(base_path).mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/ImageSets").mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/training/calib").mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/training/velodyne").mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/training/label_2").mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/training/image_2").mkdir(parents=True, exist_ok=True)
+
+    Path(base_path + "/testing/calib").mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/testing/velodyne").mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/testing/label_2").mkdir(parents=True, exist_ok=True)
+    Path(base_path + "/testing/image_2").mkdir(parents=True, exist_ok=True)
 
 def create_data_splits():
     """
@@ -228,8 +230,6 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
         w = y_max - y_min
         h = z_max - z_min
 
-        # curr_object = data.object_state[i]
-        # objects[0] = 'Car'
         # objects = object_labels[obj_id, :]
         object_labels = np.empty((1, 15), dtype='object')
         object_labels[0, 0] = 'Car'
@@ -270,7 +270,47 @@ def read_header_infos(towns):
 
 def generate_caliberation_file():
 
-    pass    
+    """
+        Reference: https://github.com/yanii/kitti-pcl/blob/master/KITTI_README.TXT
+    """
+    calib_mat = np.empty((7, 13), dtype="object")
+
+    eye_33 = np.eye((3)).reshape(-1)
+    calib_mat[0, 0] = "P0:"
+    calib_mat[0, 1:10] = eye_33
+    calib_mat[0, 10:] = np.zeros(3)
+
+    calib_mat[1, 0] = "P1:"
+    calib_mat[1, 1:10] = eye_33
+    calib_mat[1, 10:] = np.zeros(3)
+
+    calib_mat[2, 0] = "P2:"
+    calib_mat[2, 1:10] = eye_33
+    calib_mat[2, 10:] = np.zeros(3)
+
+    calib_mat[3, 0] = "P3:"
+    calib_mat[3, 1:10] = eye_33
+    calib_mat[3, 10:] = np.zeros(3)   
+
+    calib_mat[4, 0] = "R0_rect:"
+    calib_mat[4, 1:10] = eye_33
+    calib_mat[4, 10] = ''
+    calib_mat[4, 11] = ''
+    calib_mat[4, 12] = ''
+
+    calib_mat[5, 0] = "Tr_velo_to_cam:"
+    calib_mat[5, 1:10] = eye_33
+    calib_mat[5, 10] = ''
+    calib_mat[5, 11] = ''
+    calib_mat[5, 12] = ''
+
+    calib_mat[6, 0] = "Tr_imu_to_velo:"
+    calib_mat[6, 1:10] = eye_33
+    calib_mat[6, 10] = ''
+    calib_mat[6, 11] = ''
+    calib_mat[6, 12] = ''        
+
+    return calib_mat    
 
 def parse_frame_and_save_data(data, global_id, town_idx, idx_in_that_town, header_info, lidar_calib_data, dtype):
 
@@ -278,25 +318,28 @@ def parse_frame_and_save_data(data, global_id, town_idx, idx_in_that_town, heade
     point_cloud_data, object_labels, point_labels = convert_polar_to_cartesian(data, header_info, lidar_calib_data)
 
     # Generate the Caliberation file
-    generate_caliberation_file()
+    calib_data = generate_caliberation_file()
 
     if dtype == 'test':
-        point_cloud_file_path = raw_data_path + 'as_kitti/' + 'testing/velodyne/' + str(global_id) + '.npy'
-        label_path = raw_data_path + 'as_kitti/' + 'testing/label_2/' + str(global_id) + '.txt'
-        point_cloud_label_path = raw_data_path + 'as_kitti/' + 'testing/label_2/' + str(global_id) + '.npy'
-
+        folder = 'testing'
     else:
-        point_cloud_file_path = raw_data_path + 'as_kitti/' + 'training/velodyne/' + str(global_id) + '.npy'
-        label_path = raw_data_path + 'as_kitti/' + 'training/label_2/' + str(global_id) + '.txt'
-        point_cloud_label_path = raw_data_path + 'as_kitti/' + 'training/label_2/' + str(global_id) + '.npy'
+        folder = 'training'
 
+    global_id = format(global_id, "06d")
+
+    point_cloud_file_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'velodyne', global_id, 'npy')
+    label_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'label_2', global_id, 'txt')
+    point_cloud_label_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'label_2', global_id, 'npy')
+    calib_data_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'calib', global_id, 'txt')
 
     np.save(point_cloud_file_path, point_cloud_data)
-    np.save(point_cloud_label_path, point_labels)
     np.savetxt(label_path, object_labels, fmt='%s')
+    # np.save(point_cloud_label_path, point_labels)
+    np.savetxt(calib_data_path, calib_data, fmt='%s')
 
 def convert_dataset_to_kitti_format():
 
+    create_folder_structure()
     header_infos = read_header_infos(towns)
     lidar_calib_data = get_lidar_calib()
     splits = create_data_splits()
