@@ -11,6 +11,7 @@ import random
 import numpy as np
 import os
 import math
+import decimal
 
 np.random.seed(77)
 random.seed(77)
@@ -26,7 +27,7 @@ config = {
 raw_data_path = "/dg-hl-fast/codes/OpenPCDet/data/carla/mdls/"
 
 # Creating file structure
-base_path = "../as_kitti"
+base_path = "./data/carla/mdls/as_kitti"
 Path(base_path).mkdir(parents=True, exist_ok=True)
 Path(base_path + "/ImageSets").mkdir(parents=True, exist_ok=True)
 Path(base_path + "/training/calib").mkdir(parents=True, exist_ok=True)
@@ -36,6 +37,7 @@ Path(base_path + "/training/image_2").mkdir(parents=True, exist_ok=True)
 
 Path(base_path + "/testing/calib").mkdir(parents=True, exist_ok=True)
 Path(base_path + "/testing/velodyne").mkdir(parents=True, exist_ok=True)
+Path(base_path + "/testing/label_2").mkdir(parents=True, exist_ok=True)
 Path(base_path + "/testing/image_2").mkdir(parents=True, exist_ok=True)
 
 towns = ['town_1', 'town_2']
@@ -45,7 +47,7 @@ def create_data_splits():
     """
         Creates ImageSets
     """
-    image_sets_path = raw_data_path + '/as_kitti/ImageSets'
+    image_sets_path = raw_data_path + 'as_kitti/ImageSets'
     
     # Check if already exists -- override ?
     if os.path.isfile(image_sets_path + '/train.txt'):
@@ -149,6 +151,7 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
     points_per_channel = header_info.points_count_by_channel
     points = data.points
     transformed_points = np.zeros((len(points), 4)) # No intensity. # Marking it as zero
+    point_labels = -1 * np.ones((len(points)))
 
     for p_idx in range(len(points)):
 
@@ -184,34 +187,71 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
             transformed_points[p_idx, 1] = y
             transformed_points[p_idx, 2] = z
 
-    return transformed_points
+            point_labels[p_idx] = curr_point.object_id
+
 
     """ 
         Raw data has all the objects in carla
         Need to keep only the ones that are in the view
         Ref: https://github.com/NVIDIA/DIGITS/blob/v4.0.0-rc.3/digits/extensions/data/objectDetection/README.md
     """
-    # num_objects = len(data.object_state)
-    # objects = np.array((num_objects, 15), dtype='o')
-    # for i in range(num_objects):
 
-    #     curr_object = data.object_state[i]
-    #     objects[0] = 'Car'
-    #     objects[1] = 0 # Truncation. 0 = non-truncated
-    #     objects[2] = 0 # Occluded. 0 = fully-visible
-    #     objects[3] = 0 # Alpha. observation angle - calculate using centers of this and the observation vehicle
-    #     objects[4] = 0 # (4 params) bbox in image. Not needed for our point cloud based method
-    #     objects[5] = 0
-    #     objects[6] = 0
-    #     objects[7] = 0
-    #     objects[8] = 0 # 3d object co-ordinates (h, w, l, x,y,z (3D object location in camera coordinates (in meters)))
-    #     objects[9] = 0
-    #     objects[10] = 0
-    #     objects[11] = 0
-    #     objects[12] = 0
-    #     objects[13] = 0
-    #     objects[14] = 0 # rotation_y. Get if possible; o/w set 0 as we target axis aligned bbox
-    #     # objects[15] = 0 # Score ?
+    # return transformed_points
+    print(header_info.object_ids)
+    # object_labels = np.zeros((len(header_info.object_ids), 15))
+    object_labels_list = np.zeros((1, 15))
+    for obj_id in header_info.object_ids:
+
+        curr_instance_mask = point_labels == obj_id
+        curr_instance_points = transformed_points[curr_instance_mask.reshape(-1), :]
+
+        if curr_instance_points.shape[0] == 0:
+            continue
+
+        # Getting bounding box coordinates
+        x_min = np.min(curr_instance_points[:, 0])
+        x_max = np.max(curr_instance_points[:, 0])
+
+        y_min = np.min(curr_instance_points[:, 1])
+        y_max = np.max(curr_instance_points[:, 1])
+
+        z_min = np.min(curr_instance_points[:, 2])
+        z_max = np.max(curr_instance_points[:, 2])                
+
+        # Getting centers
+        x = (x_min + x_max) / 2
+        y = (y_min + y_max) / 2
+        z = (z_min + z_max) / 2
+
+        # Getting extent
+        l = x_max - x_min
+        w = y_max - y_min
+        h = z_max - z_min
+
+        # curr_object = data.object_state[i]
+        # objects[0] = 'Car'
+        # objects = object_labels[obj_id, :]
+        object_labels = np.empty((1, 15), dtype='object')
+        object_labels[0, 0] = 'Car'
+        object_labels[0, 1] = 0 # Truncation. 0 = non-truncated
+        object_labels[0, 2] = 0 # Occluded. 0 = fully-visible
+        object_labels[0, 3] = 0 # Alpha. observation angle - calculate using centers of this and the observation vehicle
+        object_labels[0, 4] = 0 # (4 params) bbox in image. Not needed for our point cloud based method
+        object_labels[0, 5] = 0
+        object_labels[0, 6] = 0
+        object_labels[0, 7] = 0
+        object_labels[0, 8] = round(h, 2) # 3d object co-ordinates (h, w, l, x,y,z (3D object location in camera coordinates (in meters)))
+        object_labels[0, 9] = round(w, 2)
+        object_labels[0, 10] = round(l, 2)
+        object_labels[0, 11] = round(x, 2)
+        object_labels[0, 12] = round(y, 2)
+        object_labels[0, 13] = round(z, 2)
+        object_labels[0, 14] = 0 # rotation_y. Get if possible; o/w set 0 as we target axis aligned bbox
+        # objects[15] = 0 # Score ?
+
+        object_labels_list = np.vstack([object_labels_list, object_labels])
+
+    return transformed_points, object_labels_list[1:, :], point_labels
 
 def read_header_infos(towns):
 
@@ -228,18 +268,32 @@ def read_header_infos(towns):
 
     return header_infos
 
+def generate_caliberation_file():
+
+    pass    
 
 def parse_frame_and_save_data(data, global_id, town_idx, idx_in_that_town, header_info, lidar_calib_data, dtype):
 
     # Convert & save the point cloud
-    point_cloud_data = convert_polar_to_cartesian(data, header_info, lidar_calib_data)
+    point_cloud_data, object_labels, point_labels = convert_polar_to_cartesian(data, header_info, lidar_calib_data)
+
+    # Generate the Caliberation file
+    generate_caliberation_file()
+
     if dtype == 'test':
         point_cloud_file_path = raw_data_path + 'as_kitti/' + 'testing/velodyne/' + str(global_id) + '.npy'
+        label_path = raw_data_path + 'as_kitti/' + 'testing/label_2/' + str(global_id) + '.txt'
+        point_cloud_label_path = raw_data_path + 'as_kitti/' + 'testing/label_2/' + str(global_id) + '.npy'
+
     else:
         point_cloud_file_path = raw_data_path + 'as_kitti/' + 'training/velodyne/' + str(global_id) + '.npy'
+        label_path = raw_data_path + 'as_kitti/' + 'training/label_2/' + str(global_id) + '.txt'
+        point_cloud_label_path = raw_data_path + 'as_kitti/' + 'training/label_2/' + str(global_id) + '.npy'
 
-    print("Saving file: ", point_cloud_file_path)
+
     np.save(point_cloud_file_path, point_cloud_data)
+    np.save(point_cloud_label_path, point_labels)
+    np.savetxt(label_path, object_labels, fmt='%s')
 
 def convert_dataset_to_kitti_format():
 
@@ -248,7 +302,7 @@ def convert_dataset_to_kitti_format():
     splits = create_data_splits()
 
     # for i in range(num_files):
-    for i in range(2):
+    for i in range(5,8):
 
         # Get meta data of id
         dtype = get_dataset_type(i, splits)
@@ -260,5 +314,7 @@ def convert_dataset_to_kitti_format():
         parse_frame_and_save_data(curr_frame_data, i, town_idx, idx_in_that_town, header_infos[town_idx], lidar_calib_data, dtype)
 
 if __name__ == '__main__':
+    # import time
+    # cb = time.start()
     convert_dataset_to_kitti_format()
     # get_lidar_calib()
