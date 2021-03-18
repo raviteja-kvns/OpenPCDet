@@ -12,6 +12,7 @@ import numpy as np
 import os
 import math
 import decimal
+import time
 
 np.random.seed(77)
 random.seed(77)
@@ -78,7 +79,7 @@ def create_data_splits():
     np.savetxt(image_sets_path + '/test.txt', test_splits, fmt='%04d')
     np.savetxt(image_sets_path + '/val.txt', val_splits, fmt='%04d')
 
-    return train_splits, test_splits, val_splits
+    return train_splits, test_splits, val_splits, num_files
 
 def convert_global_index_to_local_index(num_files_in_towns, idx):
 
@@ -199,7 +200,7 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
     """
 
     # return transformed_points
-    print(header_info.object_ids)
+    # print(header_info.object_ids)
     # object_labels = np.zeros((len(header_info.object_ids), 15))
     object_labels_list = np.zeros((1, 15))
     for obj_id in header_info.object_ids:
@@ -300,17 +301,15 @@ def generate_caliberation_file():
 
     calib_mat[5, 0] = "Tr_velo_to_cam:"
     calib_mat[5, 1:10] = eye_33
-    calib_mat[5, 10] = ''
-    calib_mat[5, 11] = ''
-    calib_mat[5, 12] = ''
+    calib_mat[5, 10:] = np.zeros(3) # Camera not involved
 
     calib_mat[6, 0] = "Tr_imu_to_velo:"
     calib_mat[6, 1:10] = eye_33
-    calib_mat[6, 10] = ''
-    calib_mat[6, 11] = ''
-    calib_mat[6, 12] = ''        
+    calib_mat[6, 10] = 0
+    calib_mat[6, 11] = 0
+    calib_mat[6, 12] = -2
 
-    return calib_mat    
+    return calib_mat
 
 def parse_frame_and_save_data(data, global_id, town_idx, idx_in_that_town, header_info, lidar_calib_data, dtype):
 
@@ -342,10 +341,13 @@ def convert_dataset_to_kitti_format():
     create_folder_structure()
     header_infos = read_header_infos(towns)
     lidar_calib_data = get_lidar_calib()
+    
     splits = create_data_splits()
+    num_files = splits[-1]
+    splits = splits[:3]
 
-    # for i in range(num_files):
-    for i in range(5,8):
+    for i in range(num_files):
+    # for i in range(5,8):
 
         # Get meta data of id
         dtype = get_dataset_type(i, splits)
@@ -357,7 +359,8 @@ def convert_dataset_to_kitti_format():
         parse_frame_and_save_data(curr_frame_data, i, town_idx, idx_in_that_town, header_infos[town_idx], lidar_calib_data, dtype)
 
 if __name__ == '__main__':
-    # import time
-    # cb = time.start()
+    tic = time.perf_counter()
     convert_dataset_to_kitti_format()
-    # get_lidar_calib()
+    toc = time.perf_counter()
+
+    print(f"Downloaded the tutorial in {toc - tic:0.4f} seconds")
