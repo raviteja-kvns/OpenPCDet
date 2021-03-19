@@ -1,7 +1,10 @@
 DATASET: 'CarlaMDLSDataset'
 DATA_PATH: '../data/carla/mdls/as_carla'
 
-POINT_CLOUD_RANGE: [0, -40, -3, 70.4, 40, 1] # Not sure about this parameter
+# Ref: https://github.com/open-mmlab/OpenPCDet/issues/105
+# limit_range: [minx, miny, minz, maxx, maxy, maxz] - Ref: mask_boxes_outside_range_numpy method from box_utils
+
+POINT_CLOUD_RANGE: [-120, -120, -3, 120, 40, 4.5] # Going with -3
 
 DATA_SPLIT: {
     'train': train,
@@ -9,11 +12,15 @@ DATA_SPLIT: {
 }
 
 INFO_PATH: {
-    'train': [kitti_infos_train.pkl],
-    'test': [kitti_infos_val.pkl],
+    'train': [carla_mdls_infos_train.pkl],
+    'test': [carla_mdls_infos_val.pkl],
 }
 
-FOV_POINTS_ONLY: True
+#  Should it be false ? 
+#  Ref: https://github.com/open-mmlab/OpenPCDet/issues/8
+#  https://github.com/open-mmlab/OpenPCDet/issues/262
+
+FOV_POINTS_ONLY: False
 
 
 DATA_AUGMENTOR:
@@ -24,12 +31,12 @@ DATA_AUGMENTOR:
           DB_INFO_PATH:
               - kitti_dbinfos_train.pkl
           PREPARE: {
-             filter_by_min_points: ['Car:5', 'Pedestrian:5', 'Cyclist:5'],
+             filter_by_min_points: ['Car:5'], #No ped and cyclist
              filter_by_difficulty: [-1],
           }
 
-          SAMPLE_GROUPS: ['Car:20','Pedestrian:15', 'Cyclist:15']
-          NUM_POINT_FEATURES: 4
+          SAMPLE_GROUPS: ['Car:20']
+          NUM_POINT_FEATURES: 3
           DATABASE_WITH_FAKELIDAR: False
           REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
           LIMIT_WHOLE_SCENE: True
@@ -46,8 +53,8 @@ DATA_AUGMENTOR:
 
 POINT_FEATURE_ENCODING: {
     encoding_type: absolute_coordinates_encoding,
-    used_feature_list: ['x', 'y', 'z', 'intensity'],
-    src_feature_list: ['x', 'y', 'z', 'intensity'],
+    used_feature_list: ['x', 'y', 'z'],
+    src_feature_list: ['x', 'y', 'z'],
 }
 
 
@@ -62,7 +69,7 @@ DATA_PROCESSOR:
       }
 
     - NAME: transform_points_to_voxels
-      VOXEL_SIZE: [0.05, 0.05, 0.1]
+      VOXEL_SIZE: [0.1, 0.1, 0.15]
       MAX_POINTS_PER_VOXEL: 5
       MAX_NUMBER_OF_VOXELS: {
         'train': 16000,

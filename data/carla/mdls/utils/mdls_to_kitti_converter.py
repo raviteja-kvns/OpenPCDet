@@ -358,9 +358,48 @@ def convert_dataset_to_kitti_format():
         # Save the frame in kitti format
         parse_frame_and_save_data(curr_frame_data, i, town_idx, idx_in_that_town, header_infos[town_idx], lidar_calib_data, dtype)
 
-if __name__ == '__main__':
-    tic = time.perf_counter()
-    convert_dataset_to_kitti_format()
-    toc = time.perf_counter()
+        print("Processed frame: ", i)
 
-    print(f"Downloaded the tutorial in {toc - tic:0.4f} seconds")
+def find_ranges():
+
+    training_velodyne_path = raw_data_path + 'as_kitti/testing/velodyne/'
+    _x = [0, 0]
+    _y = [0, 0]
+    _z = [0, 0]
+
+    list_of_point_clouds = os.listdir(training_velodyne_path)
+    for pc_path in list_of_point_clouds:
+        pc = np.load(training_velodyne_path + pc_path)
+
+        possible_min, possible_max = np.min(pc[:, 0]), np.max(pc[:, 0])
+        if possible_min < _x[0]:
+            _x[0] = possible_min
+        if possible_max > _x[1]:
+            _x[1] = possible_max
+
+        
+        possible_min, possible_max = np.min(pc[:, 1]), np.max(pc[:, 1])
+        if possible_min < _y[0]:
+            _y[0] = possible_min
+        if possible_max > _y[1]:
+            _y[1] = possible_max     
+
+        possible_min, possible_max = np.min(pc[:, 2]), np.max(pc[:, 2])
+        if possible_min < _z[0]:
+            _z[0] = possible_min
+        if possible_max > _z[1]:
+            _z[1] = possible_max     
+
+    print("The 1st dim range is: ", _x)
+    print("The 2nd dim range is: ", _y)
+    print("The 3rd dim range is: ", _z)
+
+if __name__ == '__main__':
+    # tic = time.perf_counter()
+    # convert_dataset_to_kitti_format()
+    # toc = time.perf_counter()
+
+    # print(f"Total Time taken is {toc - tic:0.4f} seconds")
+
+    # Find max ranges
+    find_ranges()

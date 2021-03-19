@@ -3,11 +3,12 @@ import pickle
 
 import numpy as np
 from skimage import io
-import mdlidar_pb2
+import decimal
+# import mdlidar_pb2
 
-from ...ops.roiaware_pool3d import roiaware_pool3d_utils
-from ...utils import box_utils, calibration_kitti, common_utils, object3d_kitti
-from ..dataset import DatasetTemplate
+from pcdet.ops.roiaware_pool3d import roiaware_pool3d_utils
+from pcdet.utils import box_utils, calibration_kitti, common_utils, object3d_kitti
+from pcdet.datasets.dataset import DatasetTemplate
 
 
 class CarlaMdlsDataset(DatasetTemplate):
@@ -27,7 +28,7 @@ class CarlaMdlsDataset(DatasetTemplate):
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
 
         split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
-        self.sample_id_list = [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
+        self.sample_id_list = [format(int(x.strip().replace('\n', '')), "06d") for x in open(split_dir).readlines()] if split_dir.exists() else None
 
         self.kitti_infos = []
         self.include_kitti_data(self.mode)
@@ -58,7 +59,7 @@ class CarlaMdlsDataset(DatasetTemplate):
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
 
         split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
-        self.sample_id_list = [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
+        self.sample_id_list = [format(int(x.strip().replace('\n', '')), "06d") for x in open(split_dir).readlines()] if split_dir.exists() else None
 
     def get_lidar(self, idx):
         lidar_file = self.root_split_path / 'velodyne' / ('%s.bin' % idx)
@@ -67,8 +68,11 @@ class CarlaMdlsDataset(DatasetTemplate):
 
     def get_image_shape(self, idx):
         img_file = self.root_split_path / 'image_2' / ('%s.png' % idx)
-        assert img_file.exists()
-        return np.array(io.imread(img_file).shape[:2], dtype=np.int32)
+        # assert img_file.exists()
+        if img_file.exists():
+            return np.array(io.imread(img_file).shape[:2], dtype=np.int32)
+        else:
+            return np.array([1, 1])
 
     def get_label(self, idx):
         label_file = self.root_split_path / 'label_2' / ('%s.txt' % idx)
@@ -187,8 +191,12 @@ class CarlaMdlsDataset(DatasetTemplate):
             return info
 
         sample_id_list = sample_id_list if sample_id_list is not None else self.sample_id_list
-        with futures.ThreadPoolExecutor(num_workers) as executor:
-            infos = executor.map(process_single_scene, sample_id_list)
+        # with futures.ThreadPoolExecutor(num_workers) as executor:
+            # infos = executor.map(process_single_scene, sample_id_list)
+
+        for sample_id in sample_id_list:
+            process_single_scene(sample_id)
+
         return list(infos)
 
     def create_groundtruth_database(self, info_path=None, used_classes=None, split='train'):
@@ -384,14 +392,14 @@ class CarlaMdlsDataset(DatasetTemplate):
         return data_dict
 
 
-def create_kitti_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
-    dataset = KittiDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
+def create_carla_mdls_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
+    dataset = CarlaMdlsDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
     train_split, val_split = 'train', 'val'
 
-    train_filename = save_path / ('kitti_infos_%s.pkl' % train_split)
-    val_filename = save_path / ('kitti_infos_%s.pkl' % val_split)
-    trainval_filename = save_path / 'kitti_infos_trainval.pkl'
-    test_filename = save_path / 'kitti_infos_test.pkl'
+    train_filename = save_path / ('carla_mdls_infos_%s.pkl' % train_split)
+    val_filename = save_path / ('carla_mdls_infos_%s.pkl' % val_split)
+    trainval_filename = save_path / 'carla_mdls_infos_trainval.pkl'
+    test_filename = save_path / 'carla_mdls_infos_test.pkl'
 
     print('---------------Start to generate data infos---------------')
 
@@ -426,15 +434,15 @@ def create_kitti_infos(dataset_cfg, class_names, data_path, save_path, workers=4
 
 if __name__ == '__main__':
     import sys
-    if sys.argv.__len__() > 1 and sys.argv[1] == 'create_kitti_infos':
+    if sys.argv.__len__() > 1 and sys.argv[1] == 'create_carla_mdls_infos':
         import yaml
         from pathlib import Path
         from easydict import EasyDict
         dataset_cfg = EasyDict(yaml.load(open(sys.argv[2])))
         ROOT_DIR = (Path(__file__).resolve().parent / '../../../').resolve()
-        create_kitti_infos(
+        create_carla_mdls_infos(
             dataset_cfg=dataset_cfg,
-            class_names=['Car', 'Pedestrian', 'Cyclist'],
-            data_path=ROOT_DIR / 'data' / 'kitti',
-            save_path=ROOT_DIR / 'data' / 'kitti'
+            class_names=['Car'],
+            data_path=ROOT_DIR / '..' / 'data' / 'carla' / 'mdls' / 'as_kitti',
+            save_path=ROOT_DIR / '..' / 'data' / 'carla' / 'mdls'
         )
