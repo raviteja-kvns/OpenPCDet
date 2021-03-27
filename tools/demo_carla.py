@@ -70,66 +70,56 @@ def parse_config():
 
 
 def main():
-    # cfg_file = 'cfgs/carla_mdls_models/pointpillar.yaml'
     args, cfg = parse_config()
 
-    # Initializing command line arguments
-    # args.ckpt = '../output/cfgs/carla_mdls_models/pointpillar/default/ckpt/checkpoint_epoch_30.pth'
-    # args.data_path = '../data/carla/mdls/as_kitti/training/velodyne/000001.npy'
-    # args.ext = '.npy'
+    if args.mode == 'viz':
+    
+        import mayavi.mlab as mlab
+        from visual_utils import visualize_utils as V
 
-    print("Successfully initialized")
+        with open(args.viz_file, 'rb') as handle:
+            viz_data = pkl.load(handle)
 
-    logger = common_utils.create_logger()
-    logger.info('-----------------Quick Demo of OpenPCDet-------------------------')
-    demo_dataset = DemoDataset(
-        dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False,
-        root_path=Path(args.data_path), ext=args.ext, logger=logger
-    )
-    logger.info(f'Total number of samples: \t{len(demo_dataset)}')
+        V.draw_scenes(
+            points=viz_data['necessary_points'], ref_boxes=viz_data['pred_boxes'],
+            ref_scores=viz_data['ref_scores'], ref_labels=viz_data['pred_labels']
+        )
+        mlab.show(stop=True)
 
-    model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=demo_dataset)
-    model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=True)
-    model.cuda()
-    model.eval()
-    with torch.no_grad():
-        for idx, data_dict in enumerate(demo_dataset):
-            logger.info(f'Visualized sample index: \t{idx + 1}')
-            data_dict = demo_dataset.collate_batch([data_dict])
-            load_data_to_gpu(data_dict)
-            pred_dicts, _ = model.forward(data_dict)
+        return 
 
-            if args.mode == 'viz':
-                # V.draw_scenes(
-                #     points=data_dict['points'][:, 1:], ref_boxes=pred_dicts[0]['pred_boxes'],
-                #     ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels']
-                # )
-                # mlab.show(stop=True)
-                
-                import mayavi.mlab as mlab
-                from visual_utils import visualize_utils as V
+    else: 
 
-                with open(args.viz_file, 'rb') as handle:
-                    viz_data = pkl.load(handle)
+        logger = common_utils.create_logger()
+        logger.info('-----------------Quick Demo of OpenPCDet-------------------------')
+        demo_dataset = DemoDataset(
+            dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False,
+            root_path=Path(args.data_path), ext=args.ext, logger=logger
+        )
+        logger.info(f'Total number of samples: \t{len(demo_dataset)}')
 
-                V.draw_scenes(
-                    points=viz_data['necessary_points'], ref_boxes=viz_data['pred_boxes'],
-                    ref_scores=viz_data['ref_scores'], ref_labels=viz_data['pred_labels']
-                )
-                mlab.show(stop=True)                
+        model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=demo_dataset)
+        model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=True)
+        model.cuda()
+        model.eval()
+        with torch.no_grad():
+            for idx, data_dict in enumerate(demo_dataset):
+                logger.info(f'Visualized sample index: \t{idx + 1}')
+                data_dict = demo_dataset.collate_batch([data_dict])
+                load_data_to_gpu(data_dict)
+                pred_dicts, _ = model.forward(data_dict)
 
-            else:
                 viz_data = {}
-                viz_data['necessary_points'] = data_dict['points'][:, 1:]
-                viz_data['pred_boxes'] = pred_dicts[0]['pred_boxes']
-                viz_data['ref_scores'] = pred_dicts[0]['pred_scores']
-                viz_data['pred_labels'] = pred_dicts[0]['pred_labels']
+                viz_data['necessary_points'] = data_dict['points'][:, 1:].cpu()
+                viz_data['pred_boxes'] = pred_dicts[0]['pred_boxes'].cpu()
+                viz_data['ref_scores'] = pred_dicts[0]['pred_scores'].cpu()
+                viz_data['pred_labels'] = pred_dicts[0]['pred_labels'].cpu()
 
                 with open(args.viz_file, 'wb') as handle:
                     pkl.dump(viz_data, handle, protocol=pkl.HIGHEST_PROTOCOL)
                     print("Successfully saved pickle file")
 
-    logger.info('Demo done.')
+        logger.info('Demo done.')
 
 
 if __name__ == '__main__':
