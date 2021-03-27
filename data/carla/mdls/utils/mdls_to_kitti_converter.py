@@ -275,38 +275,34 @@ def generate_caliberation_file():
         Reference: https://github.com/yanii/kitti-pcl/blob/master/KITTI_README.TXT
     """
     calib_mat = np.empty((7, 13), dtype="object")
+    identity_34 = np.zeros((3, 4))
+    eye_33 = np.eye((3))
+    identity_34[:3, :3] = eye_33
+    identity_34 = identity_34.reshape(-1)
 
-    eye_33 = np.eye((3)).reshape(-1)
     calib_mat[0, 0] = "P0:"
-    calib_mat[0, 1:10] = eye_33
-    calib_mat[0, 10:] = np.zeros(3)
+    calib_mat[0, 1:] = identity_34
 
     calib_mat[1, 0] = "P1:"
-    calib_mat[1, 1:10] = eye_33
-    calib_mat[1, 10:] = np.zeros(3)
+    calib_mat[1, 1:] = identity_34
 
     calib_mat[2, 0] = "P2:"
-    calib_mat[2, 1:10] = eye_33
-    calib_mat[2, 10:] = np.zeros(3)
+    calib_mat[2, 1:] = identity_34
 
     calib_mat[3, 0] = "P3:"
-    calib_mat[3, 1:10] = eye_33
-    calib_mat[3, 10:] = np.zeros(3)   
+    calib_mat[3, 1:] = identity_34
 
     calib_mat[4, 0] = "R0_rect:"
-    calib_mat[4, 1:10] = eye_33
+    calib_mat[4, 1:10] = eye_33.reshape(-1)
     calib_mat[4, 10] = ''
     calib_mat[4, 11] = ''
     calib_mat[4, 12] = ''
 
     calib_mat[5, 0] = "Tr_velo_to_cam:"
-    calib_mat[5, 1:10] = eye_33
-    calib_mat[5, 10:] = np.zeros(3) # Camera not involved
+    calib_mat[5, 1:] = identity_34 # Camera not involved 
 
     calib_mat[6, 0] = "Tr_imu_to_velo:"
-    calib_mat[6, 1:10] = eye_33
-    calib_mat[6, 10] = 0
-    calib_mat[6, 11] = 0
+    calib_mat[6, 1:] = identity_34
     calib_mat[6, 12] = -2
 
     return calib_mat
@@ -395,11 +391,11 @@ def find_ranges():
     print("The 3rd dim range is: ", _z)
 
 if __name__ == '__main__':
-    # tic = time.perf_counter()
-    # convert_dataset_to_kitti_format()
-    # toc = time.perf_counter()
-
-    # print(f"Total Time taken is {toc - tic:0.4f} seconds")
+    
+    tic = time.perf_counter()
+    convert_dataset_to_kitti_format()
+    toc = time.perf_counter()
+    print(f"Total Time taken is {toc - tic:0.4f} seconds")
 
     # Find max ranges
-    find_ranges()
+    # find_ranges()

@@ -62,9 +62,10 @@ class CarlaMdlsDataset(DatasetTemplate):
         self.sample_id_list = [format(int(x.strip().replace('\n', '')), "06d") for x in open(split_dir).readlines()] if split_dir.exists() else None
 
     def get_lidar(self, idx):
-        lidar_file = self.root_split_path / 'velodyne' / ('%s.bin' % idx)
+        lidar_file = self.root_split_path / 'velodyne' / ('%s.npy' % idx)
         assert lidar_file.exists()
-        return np.fromfile(str(lidar_file), dtype=np.float32).reshape(-1, 4)
+        # return np.fromfile(str(lidar_file), dtype=np.float32).reshape(-1, 4)
+        return np.load(str(lidar_file))
 
     def get_image_shape(self, idx):
         img_file = self.root_split_path / 'image_2' / ('%s.png' % idx)
@@ -191,11 +192,11 @@ class CarlaMdlsDataset(DatasetTemplate):
             return info
 
         sample_id_list = sample_id_list if sample_id_list is not None else self.sample_id_list
-        # with futures.ThreadPoolExecutor(num_workers) as executor:
-            # infos = executor.map(process_single_scene, sample_id_list)
+        with futures.ThreadPoolExecutor(num_workers) as executor:
+            infos = executor.map(process_single_scene, sample_id_list)
 
-        for sample_id in sample_id_list:
-            process_single_scene(sample_id)
+        # for sample_id in sample_id_list:
+            # process_single_scene(sample_id)
 
         return list(infos)
 
@@ -332,7 +333,7 @@ class CarlaMdlsDataset(DatasetTemplate):
         if 'annos' not in self.kitti_infos[0].keys():
             return None, {}
 
-        from .kitti_object_eval_python import eval as kitti_eval
+        from pcdet.datasets.kitti.kitti_object_eval_python import eval as kitti_eval
 
         eval_det_annos = copy.deepcopy(det_annos)
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
