@@ -9,13 +9,15 @@ from .kitti.kitti_dataset import KittiDataset
 from .nuscenes.nuscenes_dataset import NuScenesDataset
 from .waymo.waymo_dataset import WaymoDataset
 from .carla.mdls.carla_mdls_dataset import CarlaMdlsDataset
+from .demo.demo_dataset import DemoDataset
 
 __all__ = {
     'DatasetTemplate': DatasetTemplate,
     'KittiDataset': KittiDataset,
     'NuScenesDataset': NuScenesDataset,
     'WaymoDataset': WaymoDataset,
-    'CarlaMDLSDataset': CarlaMdlsDataset
+    'CarlaMDLSDataset': CarlaMdlsDataset,
+    'DemoDataset': DemoDataset
 }
 
 
