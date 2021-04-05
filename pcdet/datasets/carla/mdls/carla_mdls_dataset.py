@@ -180,21 +180,32 @@ class CarlaMdlsDataset(DatasetTemplate):
                     pts_rect = calib.lidar_to_rect(points[:, 0:3])
 
                     fov_flag = self.get_fov_flag(pts_rect, info['image']['image_shape'], calib)
-                    pts_fov = points[fov_flag]
+                    """
+                        All points are considered for carla dataset
+                        Therefore all points treated as in fov
+                    """
+                    # pts_fov = points[fov_flag]
+                    pts_fov = points
+
                     corners_lidar = box_utils.boxes_to_corners_3d(gt_boxes_lidar)
                     num_points_in_gt = -np.ones(num_gt, dtype=np.int32)
 
                     for k in range(num_objects):
+                        # print("Before"
                         flag = box_utils.in_hull(pts_fov[:, 0:3], corners_lidar[k])
+                        # print("After")
                         num_points_in_gt[k] = flag.sum()
                     annotations['num_points_in_gt'] = num_points_in_gt
 
             return info
 
         sample_id_list = sample_id_list if sample_id_list is not None else self.sample_id_list
+        num_workers = 50
+        print("num_workers running the task: ", num_workers)
         with futures.ThreadPoolExecutor(num_workers) as executor:
             infos = executor.map(process_single_scene, sample_id_list)
 
+        # Uncomment to debug
         # for sample_id in sample_id_list:
             # process_single_scene(sample_id)
 

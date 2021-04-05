@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import pickle as pkl
+import os
 
 def parse_config(parse_cfg=True, cfg=None, cfg_from_yaml_file=None):
     parser = argparse.ArgumentParser(description='arg parser')
@@ -14,8 +15,9 @@ def parse_config(parse_cfg=True, cfg=None, cfg_from_yaml_file=None):
                         help='specify the point cloud data file or directory')
     parser.add_argument('--ckpt', type=str, default=None, help='specify the pretrained model')
     parser.add_argument('--ext', type=str, default='.bin', help='specify the extension of your point cloud data file')
+    parser.add_argument('--d_type', type=str, default='carla', help='the type of dataset')
     parser.add_argument('--mode', type=str, default='pred', help='specify the type of evaluatio - pred or viz')
-    parser.add_argument('--viz_file', type=str, default='pred', help='{path of file containing viz data / path to save viz data file}')
+    parser.add_argument('--viz_file', type=str, default='./none', help='{path of file containing viz data / path to save viz data file}')
 
     args = parser.parse_args()
 
@@ -51,7 +53,7 @@ def main():
 
         from pcdet.config import cfg
         from pcdet.config import cfg_from_yaml_file
-        from pcdet.datasets import DemoDataset
+        from pcdet.datasets import DemoDataset, build_dataloader
         from pcdet.models import build_network, load_data_to_gpu
         from pcdet.utils import common_utils
 
@@ -59,32 +61,58 @@ def main():
 
         logger = common_utils.create_logger()
         logger.info('-----------------Quick Demo of OpenPCDet-------------------------')
-        demo_dataset = DemoDataset(
-            dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False,
-            root_path=Path(args.data_path), ext=args.ext, logger=logger
-        )
+        is_training = True
+        if args.d_type == 'carla':
+            demo_dataset, train_loader, train_sampler = build_dataloader(
+                dataset_cfg=cfg.DATA_CONFIG,
+                class_names=cfg.CLASS_NAMES,
+                batch_size=1,
+                dist=False, 
+                workers=1,
+                logger=logger,
+                training=is_training,
+                merge_all_iters_to_one_epoch=False,
+                total_epochs=1
+            )            
+        else:
+            demo_dataset = DemoDataset(
+                dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=is_training,
+                root_path=Path(args.data_path), ext=args.ext, logger=logger
+            )
         logger.info(f'Total number of samples: \t{len(demo_dataset)}')
 
         model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=demo_dataset)
         model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=True)
         model.cuda()
         model.eval()
+
         with torch.no_grad():
-            for idx, data_dict in enumerate(demo_dataset):
-                logger.info(f'Visualized sample index: \t{idx + 1}')
-                data_dict = demo_dataset.collate_batch([data_dict])
-                load_data_to_gpu(data_dict)
-                pred_dicts, _ = model.forward(data_dict)
+            # for idx, data_dict in enumerate(demo_dataset):
+            # Loop content start
+            idx = int(args.data_path)
+            data_dict = demo_dataset[idx]
 
-                viz_data = {}
-                viz_data['necessary_points'] = data_dict['points'][:, 1:].cpu()
-                viz_data['pred_boxes'] = pred_dicts[0]['pred_boxes'].cpu()
-                viz_data['ref_scores'] = pred_dicts[0]['pred_scores'].cpu()
-                viz_data['pred_labels'] = pred_dicts[0]['pred_labels'].cpu()
+            logger.info(f'Visualized sample index: \t{idx + 1}, frame id: \t{data_dict["frame_id"]}, training: \t{is_training}')
+            data_dict = demo_dataset.collate_batch([data_dict])
+            load_data_to_gpu(data_dict)
+            pred_dicts, _ = model.forward(data_dict)
 
-                with open(args.viz_file, 'wb') as handle:
-                    pkl.dump(viz_data, handle, protocol=pkl.HIGHEST_PROTOCOL)
-                    print("Successfully saved pickle file")
+            viz_data = {}
+            viz_data['necessary_points'] = data_dict['points'][:, 1:].cpu()
+            viz_data['pred_boxes'] = pred_dicts[0]['pred_boxes'].cpu()
+            viz_data['ref_scores'] = pred_dicts[0]['pred_scores'].cpu()
+            viz_data['pred_labels'] = pred_dicts[0]['pred_labels'].cpu()
+            viz_data['gt_boxes'] = data_dict['gt_boxes'].cpu()
+
+            op_file_path = './' + data_dict["frame_id"][0] + '.pkl'
+            if os.path.exists(op_file_path):
+                os.remove(op_file_path)
+
+            with open(op_file_path, 'wb') as handle:
+                pkl.dump(viz_data, handle, protocol=pkl.HIGHEST_PROTOCOL)
+                print("Successfully saved pickle to file: ", op_file_path)
+            
+            # Loop content end
 
         logger.info('Demo done.')
 

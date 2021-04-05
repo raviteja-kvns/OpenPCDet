@@ -19,3 +19,4 @@ misc/kitti_object_vis/
 notes.txt
 output
 .ipynb_checkpoints/
+*.npy

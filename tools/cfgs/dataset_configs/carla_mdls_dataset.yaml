@@ -1,10 +1,11 @@
 DATASET: 'CarlaMDLSDataset'
-DATA_PATH: '../data/carla/mdls/as_carla'
+DATA_PATH: '../data/carla/mdls/as_kitti'
 
 # Ref: https://github.com/open-mmlab/OpenPCDet/issues/105
 # limit_range: [minx, miny, minz, maxx, maxy, maxz] - Ref: mask_boxes_outside_range_numpy method from box_utils
 
-POINT_CLOUD_RANGE: [-120, -120, -3, 120, 40, 4.5] # Going with -3
+# POINT_CLOUD_RANGE: [-120, -120, -30, 120, 40, 4.5] # Going with -3
+POINT_CLOUD_RANGE: [-70.4, -40, -3, 70.4, 40, 1]
 
 DATA_SPLIT: {
     'train': train,
@@ -26,20 +27,20 @@ FOV_POINTS_ONLY: False
 DATA_AUGMENTOR:
     DISABLE_AUG_LIST: ['placeholder']
     AUG_CONFIG_LIST:
-        - NAME: gt_sampling
-          USE_ROAD_PLANE: False
-          DB_INFO_PATH:
-              - kitti_dbinfos_train.pkl
-          PREPARE: {
-             filter_by_min_points: ['Car:5'], #No ped and cyclist
-             filter_by_difficulty: [-1],
-          }
+        # - NAME: gt_sampling
+        #   USE_ROAD_PLANE: False
+        #   DB_INFO_PATH:
+        #       - carla_mdls_dbinfos_train.pkl
+        #   PREPARE: {
+        #      filter_by_min_points: ['Car:5'], #No ped and cyclist
+        #      filter_by_difficulty: [-1],
+        #   }
 
-          SAMPLE_GROUPS: ['Car:20']
-          NUM_POINT_FEATURES: 3
-          DATABASE_WITH_FAKELIDAR: False
-          REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
-          LIMIT_WHOLE_SCENE: True
+        #   SAMPLE_GROUPS: ['Car:20']
+        #   NUM_POINT_FEATURES: 3
+        #   DATABASE_WITH_FAKELIDAR: False
+        #   REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+        #   LIMIT_WHOLE_SCENE: True
 
         - NAME: random_world_flip
           ALONG_AXIS_LIST: ['x']
@@ -69,7 +70,8 @@ DATA_PROCESSOR:
       }
 
     - NAME: transform_points_to_voxels
-      VOXEL_SIZE: [0.1, 0.1, 0.15]
+      # VOXEL_SIZE: [0.1, 0.1, 0.15]
+      VOXEL_SIZE: [0.05, 0.05, 0.1]
       MAX_POINTS_PER_VOXEL: 5
       MAX_NUMBER_OF_VOXELS: {
         'train': 16000,

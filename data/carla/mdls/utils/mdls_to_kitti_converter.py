@@ -61,8 +61,12 @@ def create_data_splits():
     for i in range(len(towns)):
         town = towns[i]
         path, dirs, files = next(os.walk(raw_data_path + town + '/frame'))
+        
         num_files_in_towns[i] = len(files)
         num_files += len(files)
+
+        # num_files_in_towns[i] = 30
+        # num_files += 30
 
     # Splitting the towns data into train, test, val
     files = np.arange(0, num_files)
@@ -136,6 +140,14 @@ def get_lidar_calib():
         parsed_calib[ray] = temp
 
     return parsed_calib
+
+def is_empty_bbox(x, y, z, l, w, h):
+
+    result = False
+    if l == 0 or w == 0 or h == 0:
+        result = True
+
+    return result
 
 def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
     
@@ -227,9 +239,22 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
         z = (z_min + z_max) / 2
 
         # Getting extent
-        l = x_max - x_min
-        w = y_max - y_min
+        l_t = x_max - x_min
+        w_t = y_max - y_min
         h = z_max - z_min
+
+        l = max(l_t, w_t)
+        w = min(l_t, w_t)
+
+        # Computing r_y in velodyne coordinates. Will be converted to camera co-ordinates when assigning
+        r_y = 0 
+        if l == l_t:
+            r_y = 0
+        else:
+            r_y = np.pi / 2
+
+        if is_empty_bbox(x, y, z, l, w, h):
+            continue
 
         # objects = object_labels[obj_id, :]
         object_labels = np.empty((1, 15), dtype='object')
@@ -246,8 +271,8 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
         object_labels[0, 10] = round(l, 2)
         object_labels[0, 11] = round(x, 2)
         object_labels[0, 12] = round(y, 2)
-        object_labels[0, 13] = round(z, 2)
-        object_labels[0, 14] = 0 # rotation_y. Get if possible; o/w set 0 as we target axis aligned bbox
+        object_labels[0, 13] = round(z - round(h, 2)/2, 2) # Kitti's box center is bottom center ( Ref # https://github.com/lyft/nuscenes-devkit/blob/master/lyft_dataset_sdk/utils/kitti.py)
+        object_labels[0, 14] = -(r_y + np.pi / 2) # Converting to camera coordinates from velodyne
         # objects[15] = 0 # Score ?
 
         object_labels_list = np.vstack([object_labels_list, object_labels])
@@ -324,7 +349,7 @@ def parse_frame_and_save_data(data, global_id, town_idx, idx_in_that_town, heade
 
     point_cloud_file_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'velodyne', global_id, 'npy')
     label_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'label_2', global_id, 'txt')
-    point_cloud_label_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'label_2', global_id, 'npy')
+    point_cloud_label_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'label_2', global_id + '_label', 'npy')
     calib_data_path = '%sas_kitti/%s/%s/%s.%s' % (raw_data_path, folder, 'calib', global_id, 'txt')
 
     np.save(point_cloud_file_path, point_cloud_data)
@@ -343,7 +368,8 @@ def convert_dataset_to_kitti_format():
     splits = splits[:3]
 
     for i in range(num_files):
-    # for i in range(5,8):
+    # ind_req = 2059
+    # for i in range(ind_req, ind_req + 1):
 
         # Get meta data of id
         dtype = get_dataset_type(i, splits)
