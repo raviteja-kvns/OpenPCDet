@@ -16,6 +16,12 @@ import time
 
 np.random.seed(77)
 random.seed(77)
+min_obj_size = {
+    "length": 1.5, #Meters
+    "width": 1 #Meters
+    "height": 0.5 #Meters
+    "points": 10 # Min number of points
+}
 
 # Other Necessary Info
 config = {
@@ -149,6 +155,21 @@ def is_empty_bbox(x, y, z, l, w, h):
 
     return result
 
+def has_atleast_minimum_size(l, w, h, num_pts):
+
+    result = False
+    if l < min_obj_size["length"]:
+        result = True
+    elif w < min_obj_size["width"]:
+        result = True
+    elif h < min_obj_size["height"]:
+        result = True
+    elif num_pts < min_obj_size["points"]:
+        result = True
+
+    return result
+
+
 def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
     
     """
@@ -253,7 +274,7 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
         else:
             r_y = np.pi / 2
 
-        if is_empty_bbox(x, y, z, l, w, h):
+        if is_empty_bbox(x, y, z, l, w, h) or has_atleast_minimum_size(l, w, h, curr_instance_points.shape[0]):
             continue
 
         # objects = object_labels[obj_id, :]
