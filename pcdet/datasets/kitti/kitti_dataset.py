@@ -186,6 +186,10 @@ class KittiDataset(DatasetTemplate):
             return info
 
         sample_id_list = sample_id_list if sample_id_list is not None else self.sample_id_list
+        
+        num_workers = 50
+        print("num_workers running the task: ", num_workers)
+        
         with futures.ThreadPoolExecutor(num_workers) as executor:
             infos = executor.map(process_single_scene, sample_id_list)
         return list(infos)
@@ -329,7 +333,48 @@ class KittiDataset(DatasetTemplate):
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
 
-        return ap_result_str, ap_dict
+        return ap_result_str, ap_dict     
+
+    def overwrite_bbox_size(self, bbox_obj):
+
+        for obj in bbox_obj:
+            obj['bbox'][:, [2,3]] = 100
+
+        return bbox_obj
+
+    def evaluation_debug(self, det_annos, class_names, **kwargs):
+        if 'annos' not in self.kitti_infos[0].keys():
+            return None, {}
+
+        from pcdet.datasets.kitti.kitti_object_eval_python import eval as kitti_eval
+
+        eval_det_annos = copy.deepcopy(det_annos)
+        # eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
+        eval_examples = 1
+        eval_gt_annos = [copy.deepcopy(self.kitti_infos[i]['annos']) for i in range(eval_examples)]
+        # ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        """
+            Debug Mode: evaluating 
+        """
+
+        # Initializing bbox size
+        # self.overwrite_bbox_size(eval_gt_annos)
+        # self.overwrite_bbox_size(eval_det_annos)
+
+        # Evaluating gt with gt
+        print("Evaluating GT with GT")
+        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_gt_annos, class_names)
+
+        # Evaluating preds with preds
+        # print("Evaluating Preds with Preds")
+        # ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_det_annos, eval_det_annos, class_names)
+
+        # Evaluating GT with preds
+        print("Evaluating GT with Preds")
+        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)        
+
+        return ap_result_str, ap_dict   
 
     def __len__(self):
         if self._merge_all_iters_to_one_epoch:
@@ -378,6 +423,12 @@ class KittiDataset(DatasetTemplate):
                 input_dict['road_plane'] = road_plane
 
         data_dict = self.prepare_data(data_dict=input_dict)
+
+        # Added for PointContrast        
+        data_dict['calib'] = input_dict['calib']
+        if 'gt_names' in input_dict.keys():
+            data_dict['gt_names'] = input_dict['gt_names']
+            data_dict['gt_boxes'] = input_dict['gt_boxes']
 
         data_dict['image_shape'] = img_shape
         return data_dict

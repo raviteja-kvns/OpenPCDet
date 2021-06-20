@@ -176,6 +176,9 @@ class DatasetTemplate(torch_data.Dataset):
                     ret[key] = np.stack(val, axis=0)
             except:
                 print('Error in collate_batch: key=%s' % key)
+                # if key == 'gt_names':
+                #     print("TO_REMOVE: Skipping error throwing for gt_names")
+                # else:
                 raise TypeError
 
         ret['batch_size'] = batch_size

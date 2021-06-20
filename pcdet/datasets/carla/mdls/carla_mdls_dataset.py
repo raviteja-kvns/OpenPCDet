@@ -348,9 +348,57 @@ class CarlaMdlsDataset(DatasetTemplate):
 
         eval_det_annos = copy.deepcopy(det_annos)
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
+
+        # Initializing bbox size
+        self.overwrite_bbox_size(eval_gt_annos)
+        self.overwrite_bbox_size(eval_det_annos)
+
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
 
         return ap_result_str, ap_dict
+
+    def overwrite_bbox_size(self, bbox_obj):
+
+        for obj in bbox_obj:
+            obj['bbox'][:, [2,3]] = 100
+
+        return bbox_obj
+
+    def evaluation_debug(self, det_annos, class_names, **kwargs):
+        if 'annos' not in self.kitti_infos[0].keys():
+            return None, {}
+
+        from pcdet.datasets.kitti.kitti_object_eval_python import eval as kitti_eval
+
+        eval_det_annos = copy.deepcopy(det_annos)
+        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
+        
+        # eval_examples = 20
+        # eval_gt_annos = [copy.deepcopy(self.kitti_infos[i]['annos']) for i in range(eval_examples)]
+        
+        # ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        """
+            Debug Mode: evaluating 
+        """
+
+        # Initializing bbox size
+        self.overwrite_bbox_size(eval_gt_annos)
+        self.overwrite_bbox_size(eval_det_annos)
+        
+        # Evaluating gt with gt - Actual Result
+        print("Evaluating GT with Preds")
+        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        # Evaluating gt with gt
+        # print("Evaluating GT with GT")
+        # ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_gt_annos, class_names)
+
+        # Evaluating preds with preds
+        # print("Evaluating Preds with Preds")
+        # ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_det_annos, eval_det_annos, class_names)
+
+        return ap_result_str, ap_dict   
 
     def __len__(self):
         if self._merge_all_iters_to_one_epoch:
@@ -401,6 +449,13 @@ class CarlaMdlsDataset(DatasetTemplate):
         data_dict = self.prepare_data(data_dict=input_dict)
 
         data_dict['image_shape'] = img_shape
+
+        # Added for PointContrast        
+        data_dict['calib'] = input_dict['calib']
+        if 'gt_names' in input_dict.keys():
+            data_dict['gt_names'] = input_dict['gt_names']
+            data_dict['gt_boxes'] = input_dict['gt_boxes']
+        
         return data_dict
 
 
