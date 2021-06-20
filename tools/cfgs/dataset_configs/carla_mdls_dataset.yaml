@@ -1,5 +1,7 @@
 DATASET: 'CarlaMDLSDataset'
-DATA_PATH: '../data/carla/mdls/as_kitti'
+# DATA_PATH: '../data/carla/mdls/as_kitti'
+# DATA_PATH: '../data/carla/mdls/as_kitti_with_small_objs'
+DATA_PATH: '/dg-hl-fast/codes/OpenPCDet/data/carla/mdls/as_kitti/'
 
 # Ref: https://github.com/open-mmlab/OpenPCDet/issues/105
 # limit_range: [minx, miny, minz, maxx, maxy, maxz] - Ref: mask_boxes_outside_range_numpy method from box_utils

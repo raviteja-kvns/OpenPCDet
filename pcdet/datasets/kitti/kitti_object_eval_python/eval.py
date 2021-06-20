@@ -41,6 +41,7 @@ def clean_data(gt_anno, dt_anno, current_class, difficulty):
         bbox = gt_anno["bbox"][i]
         gt_name = gt_anno["name"][i].lower()
         height = bbox[3] - bbox[1]
+
         valid_class = -1
         if (gt_name == current_cls_name):
             valid_class = 1
@@ -73,6 +74,7 @@ def clean_data(gt_anno, dt_anno, current_class, difficulty):
         else:
             valid_class = -1
         height = abs(dt_anno["bbox"][i, 3] - dt_anno["bbox"][i, 1])
+        # height = 41 #TODO
         if height < MIN_HEIGHT[difficulty]:
             ignored_dt.append(1)
         elif valid_class == 1:
@@ -148,8 +150,10 @@ def d3_box_overlap_kernel(boxes, qboxes, rinc, criterion=-1):
 
 
 def d3_box_overlap(boxes, qboxes, criterion=-1):
+    # np.testing.assert_allclose(boxes, qboxes)
     rinc = rotate_iou_gpu_eval(boxes[:, [0, 2, 3, 5, 6]],
                                qboxes[:, [0, 2, 3, 5, 6]], 2)
+    # print("rinc", rinc)
     d3_box_overlap_kernel(boxes, qboxes, rinc, criterion)
     return rinc
 
