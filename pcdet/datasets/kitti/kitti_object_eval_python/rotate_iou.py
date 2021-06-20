@@ -174,7 +174,11 @@ def point_in_quadrilateral(pt_x, pt_y, corners):
     adad = ad0 * ad0 + ad1 * ad1
     adap = ad0 * ap0 + ad1 * ap1
 
-    return abab >= abap and abap >= 0 and adad >= adap and adap >= 0
+    # eps = -1e+1
+    # eps = 0
+    eps = -1e-4
+
+    return abab >= abap + eps and abap >= eps and adad >= adap + eps and adap >= eps
 
 
 @cuda.jit('(float32[:], float32[:], float32[:])', device=True, inline=True)
@@ -236,20 +240,24 @@ def inter(rbbox1, rbbox2):
 
     rbbox_to_corners(corners1, rbbox1)
     rbbox_to_corners(corners2, rbbox2)
-
+    # print("corners1", corners1)
+    # print("corners2", corners2)
     num_intersection = quadrilateral_intersection(corners1, corners2,
                                                   intersection_corners)
     sort_vertex_in_convex_polygon(intersection_corners, num_intersection)
     # print(intersection_corners.reshape([-1, 2])[:num_intersection])
 
     return area(intersection_corners, num_intersection)
+    # return num_intersection
 
 
 @cuda.jit('(float32[:], float32[:], int32)', device=True, inline=True)
 def devRotateIoUEval(rbox1, rbox2, criterion=-1):
+    
     area1 = rbox1[2] * rbox1[3]
     area2 = rbox2[2] * rbox2[3]
     area_inter = inter(rbox1, rbox2)
+    # return area_inter
     if criterion == -1:
         return area_inter / (area1 + area2 - area_inter)
     elif criterion == 0:
