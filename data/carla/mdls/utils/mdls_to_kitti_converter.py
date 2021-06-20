@@ -18,8 +18,8 @@ np.random.seed(77)
 random.seed(77)
 min_obj_size = {
     "length": 1.5, #Meters
-    "width": 1 #Meters
-    "height": 0.5 #Meters
+    "width": 0.75, #Meters
+    "height": 0.5, #Meters
     "points": 10 # Min number of points
 }
 
@@ -56,12 +56,6 @@ def create_data_splits():
     """
         Creates ImageSets
     """
-    image_sets_path = raw_data_path + 'as_kitti/ImageSets'
-    
-    # Check if already exists -- override ?
-    if os.path.isfile(image_sets_path + '/train.txt'):
-        print("Dataset splits already exist")
-
     # Collecting files
     num_files = 0
     for i in range(len(towns)):
@@ -84,12 +78,22 @@ def create_data_splits():
     test_splits = files[train_split_ind: test_split_ind]
     val_splits = files[test_split_ind:]
 
-    # Saving the splits
-    np.savetxt(image_sets_path + '/train.txt', train_splits, fmt='%04d')
-    np.savetxt(image_sets_path + '/test.txt', test_splits, fmt='%04d')
-    np.savetxt(image_sets_path + '/val.txt', val_splits, fmt='%04d')
+    # train_splits = files[0: 2]
+    # test_splits = files[2: 4]
+    # val_splits = files[4:6]    
 
     return train_splits, test_splits, val_splits, num_files
+
+def save_data_splits(splits, split_type):
+
+    image_sets_path = raw_data_path + 'as_kitti/ImageSets'
+    
+    # Check if already exists -- override ?
+    if os.path.isfile(image_sets_path + '/train.txt'):
+        print("Dataset splits already exist")
+
+    # Saving the splits
+    np.savetxt(image_sets_path + '/' + split_type + '.txt', splits, fmt='%04d')
 
 def convert_global_index_to_local_index(num_files_in_towns, idx):
 
@@ -157,15 +161,15 @@ def is_empty_bbox(x, y, z, l, w, h):
 
 def has_atleast_minimum_size(l, w, h, num_pts):
 
-    result = False
+    result = True
     if l < min_obj_size["length"]:
-        result = True
+        result = False
     elif w < min_obj_size["width"]:
-        result = True
+        result = False
     elif h < min_obj_size["height"]:
-        result = True
+        result = False
     elif num_pts < min_obj_size["points"]:
-        result = True
+        result = False
 
     return result
 
@@ -274,7 +278,7 @@ def convert_polar_to_cartesian(data, header_info, lidar_calib_data):
         else:
             r_y = np.pi / 2
 
-        if is_empty_bbox(x, y, z, l, w, h) or has_atleast_minimum_size(l, w, h, curr_instance_points.shape[0]):
+        if not has_atleast_minimum_size(l, w, h, curr_instance_points.shape[0]):
             continue
 
         # objects = object_labels[obj_id, :]
@@ -358,6 +362,10 @@ def parse_frame_and_save_data(data, global_id, town_idx, idx_in_that_town, heade
     # Convert & save the point cloud
     point_cloud_data, object_labels, point_labels = convert_polar_to_cartesian(data, header_info, lidar_calib_data)
 
+    if object_labels.shape[0] == 0:
+        print("No objectes detected", global_id)
+        return False
+
     # Generate the Caliberation file
     calib_data = generate_caliberation_file()
 
@@ -378,6 +386,8 @@ def parse_frame_and_save_data(data, global_id, town_idx, idx_in_that_town, heade
     # np.save(point_cloud_label_path, point_labels)
     np.savetxt(calib_data_path, calib_data, fmt='%s')
 
+    return True
+
 def convert_dataset_to_kitti_format():
 
     create_folder_structure()
@@ -388,20 +398,43 @@ def convert_dataset_to_kitti_format():
     num_files = splits[-1]
     splits = splits[:3]
 
-    for i in range(num_files):
-    # ind_req = 2059
-    # for i in range(ind_req, ind_req + 1):
+    dtypes = ['train', 'test', 'val']
+    # for i in range(num_files):
+    # # ind_req = 2059
+    # # for i in range(ind_req, ind_req + 1):
 
+    #     # Get meta data of id
+    #     dtype = get_dataset_type(i, splits)
+
+    #     # Read that frame
+    #     curr_frame_data, town_idx, idx_in_that_town = read_curr_frame_data(i)
+
+    #     # Save the frame in kitti format
+    #     parse_and_save_status = parse_frame_and_save_data(curr_frame_data, i, town_idx, idx_in_that_town, header_infos[town_idx], lidar_calib_data, dtype)
+
+    #     print("Processed frame: ", i)
+    overall_completed_ctr = 0
+    for split_idx in range(3):
+
+        curr_split = splits[split_idx]
         # Get meta data of id
-        dtype = get_dataset_type(i, splits)
-
+        dtype = dtypes[split_idx]
+        num_files_in_split = curr_split.shape[0]
+        status = np.empty(num_files_in_split, dtype=bool)
+        status[:]=False
         # Read that frame
-        curr_frame_data, town_idx, idx_in_that_town = read_curr_frame_data(i)
+        for idx in range(num_files_in_split):
+            i = curr_split[idx]
+            curr_frame_data, town_idx, idx_in_that_town = read_curr_frame_data(i)
 
-        # Save the frame in kitti format
-        parse_frame_and_save_data(curr_frame_data, i, town_idx, idx_in_that_town, header_infos[town_idx], lidar_calib_data, dtype)
+            # Save the frame in kitti format
+            parse_and_save_status = parse_frame_and_save_data(curr_frame_data, i, town_idx, idx_in_that_town, header_infos[town_idx], lidar_calib_data, dtype)
+            
+            status[idx] = parse_and_save_status
+            overall_completed_ctr += 1
+            print("Processed frame: ", overall_completed_ctr, '/', num_files, end='\r')    
 
-        print("Processed frame: ", i)
+        save_data_splits(curr_split[status], dtype)
 
 def find_ranges():
 
